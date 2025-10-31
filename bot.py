@@ -19,7 +19,7 @@ SECRET_TEXT = "brho123"
 FORCED_CHANNEL = "@brho330"
 FORCED_SUBS = True
 
-# ملف حفظ المستخدمين والإحصائيات
+# ملفات الحفظ
 USERS_FILE = "users.txt"
 STATS_FILE = "stats.json"
 
@@ -87,103 +87,132 @@ def check_subscription(user_id):
 
 def check_sub_markup():
     markup = InlineKeyboardMarkup()
-    markup.add(Btn("🔔 اشترك في القناة", url=f"https://t.me/{FORCED_CHANNEL[1:]}"))
-    markup.add(Btn("✅ تحقق من الاشتراك", callback_data="check_sub"))
+    markup.add(Btn("اشترك في القناة", url=f"https://t.me/{FORCED_CHANNEL[1:]}"))
+    markup.add(Btn("تحقق من الاشتراك", callback_data="check_sub"))
     return markup
 
 # ====== لوحة التحكم ======
 def admin_panel(chat_id):
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
-        Btn("📢 إذاعة", callback_data="broadcast"),
-        Btn("📊 الإحصائيات", callback_data="stats"),
-        Btn("🔔 تفعيل الاشتراك", callback_data="enable_sub"),
-        Btn("🔕 إيقاف الاشتراك", callback_data="disable_sub")
+        Btn("إذاعة", callback_data="broadcast"),
+        Btn("الإحصائيات", callback_data="stats"),
+        Btn("تفعيل الاشتراك", callback_data="enable_sub"),
+        Btn("إيقاف الاشتراك", callback_data="disable_sub")
     )
-    bot.send_message(chat_id, "*⚙️ لوحة تحكم الأدمن*", reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(chat_id, "*لوحة تحكم الأدمن*", reply_markup=markup, parse_mode="Markdown")
 
 # ====== معالجة الأزرار ======
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
 
-    if not is_admin(user_id):
-        bot.answer_callback_query(call.id, "🚫 ليس لديك صلاحية!")
+    if call.data == "check_sub":
+        if check_subscription(user_id):
+            bot.answer_callback_query(call.id, "أنت مشترك الآن!")
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+                send_welcome(user_id)  # يفتح البوت تلقائيًا
+            except:
+                pass
+        else:
+            bot.answer_callback_query(call.id, "لم تشترك بعد!")
+
+    elif not is_admin(user_id):
+        bot.answer_callback_query(call.id, "ليس لديك صلاحية!")
         return
 
-    try:
-        if call.data == "check_sub":
-            if check_subscription(call.from_user.id):
-                bot.answer_callback_query(call.id, "✅ أنت مشترك!")
-                bot.delete_message(call.message.chat.id, call.message.message_id)
-            else:
-                bot.answer_callback_query(call.id, "⚠️ لم تشترك بعد!")
-
-        elif call.data == "broadcast":
-            msg = bot.send_message(call.message.chat.id, "📩 أرسل الرسالة التي تريد إذاعتها (نص، صورة، فيديو...):")
-            bot.register_next_step_handler(msg, start_broadcast)
-
-        elif call.data == "stats":
-            text = (
-                "*📊 إحصائيات البوت*\n\n"
-                f"👥 عدد المستخدمين: `{len(users)}`\n"
-                f"📩 الرسائل المستلمة: `{stats['messages_received']}`\n"
-                f"📥 الفيديوهات المحملة: `{stats['videos_downloaded']}`"
-            )
-            bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
-
-        elif call.data == "enable_sub":
-            global FORCED_SUBS
-            FORCED_SUBS = True
-            save_data(users, stats)
-            bot.answer_callback_query(call.id, "تم تفعيل الاشتراك")
-            bot.edit_message_text("🔔 تم تفعيل الاشتراك الإجباري", call.message.chat.id, call.message.message_id)
-
-        elif call.data == "disable_sub":
-            FORCED_SUBS = False
-            save_data(users, stats)
-            bot.answer_callback_query(call.id, "تم إيقاف الاشتراك")
-            bot.edit_message_text("🔕 تم إيقاف الاشتراك الإجباري", call.message.chat.id, call.message.message_id)
-
-    except Exception as e:
-        bot.send_message(ADMINS[0], f"خطأ في Callback: {e}")
-
-# ====== الإذاعة في خلفية منفصلة ======
-def send_broadcast_message(user_id, message):
-    try:
-        bot.forward_message(user_id, message.chat.id, message.message_id)
-        return True
-    except:
+    else:
         try:
-            bot.copy_message(user_id, message.chat.id, message.message_id)
-            return True
-        except:
-            return False
+            if call.data == "broadcast":
+                msg = bot.send_message(call.message.chat.id, "أرسل الرسالة للإذاعة (نص، صورة، فيديو...):")
+                bot.register_next_step_handler(msg, start_broadcast)
 
+            elif call.data == "stats":
+                text = (
+                    "*إحصائيات البوت*\n\n"
+                    f"عدد المستخدمين: `{len(users)}`\n"
+                    f"الرسائل المستلمة: `{stats['messages_received']}`\n"
+                    f"الفيديوهات المحملة: `{stats['videos_downloaded']}`"
+                )
+                bot.send_message(call.message.chat.id, text, parse_mode="Markdown")
+
+            elif call.data == "enable_sub":
+                global FORCED_SUBS
+                FORCED_SUBS = True
+                save_data(users, stats)
+                bot.edit_message_text("تم تفعيل الاشتراك الإجباري", call.message.chat.id, call.message.message_id)
+
+            elif call.data == "disable_sub":
+                FORCED_SUBS = False
+                save_data(users, stats)
+                bot.edit_message_text("تم إيقاف الاشتراك الإجباري", call.message.chat.id, call.message.message_id)
+
+        except Exception as e:
+            bot.send_message(ADMINS[0], f"خطأ: {e}")
+
+# ====== الإذاعة كرسالة عادية (copy_message) ======
 def start_broadcast(message):
     if not is_admin(message.from_user.id):
         return
 
     sent = 0
     failed = 0
-    bot.reply_to(message, "🚀 جاري الإذاعة...")
+    bot.reply_to(message, "جاري الإذاعة...")
 
     def broadcast_thread():
         nonlocal sent, failed
         for user_id in list(users):
-            if send_broadcast_message(user_id, message):
+            try:
+                bot.copy_message(user_id, message.chat.id, message.message_id)
                 sent += 1
-            else:
+            except:
                 failed += 1
-            # تجنب الحظر
-            threading.Event().wait(0.05)
+            threading.Event().wait(0.05)  # تجنب الحظر
 
-        save_data(users, stats)
-        bot.send_message(message.chat.id, f"✅ تمت الإذاعة:\nإرسال: `{sent}`\nفشل: `{failed}`", parse_mode="Markdown")
+        bot.send_message(message.chat.id, f"تمت الإذاعة:\nإرسال: `{sent}`\nفشل: `{failed}`", parse_mode="Markdown")
 
     threading.Thread(target=broadcast_thread, daemon=True).start()
 
-# ====== معالجة الرسائل ======
+# ====== رسالة الترحيب (بعد الاشتراك) ======
+def send_welcome(user_id):
+    markup = InlineKeyboardMarkup()
+    markup.add(Btn("قناة البوت", url=f"https://t.me/{FORCED_CHANNEL[1:]}"))
+    bot.send_message(
+        user_id,
+        "*مرحباً بك!*\n"
+        "أرسل رابط إنستغرام (ريلز أو فيديو) وسأحمل لك الفيديو فورًا\n\n"
+        "مثال:\n"
+        "https://www.instagram.com/reel/C123abc/",
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+
+# ====== أمر /start ======
+@bot.message_handler(commands=['start'])
+def start_command(m):
+    user_id = m.from_user.id
+    users.add(user_id)
+    stats['messages_received'] += 1
+    save_data(users, stats)
+
+    # لوحة التحكم للأدمن
+    if is_admin(user_id) and m.text.strip() == f"/start {SECRET_TEXT}":
+        admin_panel(user_id)
+        return
+
+    # فحص الاشتراك
+    if not check_subscription(user_id):
+        bot.send_message(
+            user_id,
+            "*يجب عليك الاشتراك في القناة أولاً لاستخدام البوت!*",
+            reply_markup=check_sub_markup(),
+            parse_mode="Markdown"
+        )
+    else:
+        send_welcome(user_id)
+
+# ====== معالجة النصوص (روابط إنستا) ======
 @bot.message_handler(func=lambda m: True, content_types=['text'])
 def handle_text(m):
     user_id = m.from_user.id
@@ -197,40 +226,43 @@ def handle_text(m):
         if is_admin(user_id):
             admin_panel(user_id)
         else:
-            bot.reply_to(m, "🚫 ليس لديك صلاحية.")
+            bot.reply_to(m, "ليس لديك صلاحية.")
         return
 
     # فحص الاشتراك
     if not check_subscription(user_id):
-        bot.reply_to(m, "⚠️ يجب عليك الاشتراك في القناة أولاً!", reply_markup=check_sub_markup())
+        bot.reply_to(m, "يجب عليك الاشتراك أولاً!", reply_markup=check_sub_markup())
         return
 
-    # تحميل فيديو إنستا
+    # تحميل الفيديو
     if is_instagram_link(text):
-        wait_msg = bot.reply_to(m, "⏳ جاري تحميل الفيديو...")
+        wait_msg = bot.reply_to(m, "جاري تحميل الفيديو...")
         video_url = download_instagram_video(text)
 
         if video_url:
             try:
                 markup = InlineKeyboardMarkup()
-                markup.add(Btn("📢 قناة البوت", url=f"https://t.me/{FORCED_CHANNEL[1:]}"))
+                markup.add(Btn("قناة البوت", url=f"https://t.me/{FORCED_CHANNEL[1:]}"))
                 bot.send_video(
                     user_id,
                     video_url,
-                    caption="✅ تم تحميل الفيديو بنجاح!",
+                    caption="تم تحميل الفيديو بنجاح!",
                     reply_markup=markup
                 )
                 stats['videos_downloaded'] += 1
                 save_data(users, stats)
-            except Exception as e:
-                bot.reply_to(m, "❌ فشل إرسال الفيديو (ربما حجمه كبير جداً).")
-                print(e)
+            except:
+                bot.reply_to(m, "فشل إرسال الفيديو (حجم كبير جدًا).")
         else:
-            bot.reply_to(m, "❌ عذراً، لم أتمكن من تحميل الفيديو. تأكد من الرابط.")
+            bot.reply_to(m, "عذرًا، تعذر تحميل الفيديو. تأكد من الرابط.")
         
-        bot.delete_message(chat_id=user_id, message_id=wait_msg.message_id)
+        try:
+            bot.delete_message叔
+
+        except:
+            pass
     else:
-        bot.reply_to(m, "🔗 أرسل رابط إنستغرام صالح فقط.")
+        bot.reply_to(m, "أرسل رابط إنستغرام صالح فقط.")
 
 # ====== Webhook ======
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -240,14 +272,13 @@ def webhook():
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return '', 200
-    else:
-        return 'Forbidden', 403
+    return 'Forbidden', 403
 
 @app.route('/')
 def index():
-    return "<h1>🤖 بوت تحميل إنستغرام يعمل!</h1><p>القناة: <a href='https://t.me/brho330'>@brho330</a></p>", 200
+    return "<h1>بوت تحميل إنستغرام يعمل!</h1><p>@brho330</p>", 200
 
-# ====== تشغيل البوت ======
+# ====== تشغيل ======
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
