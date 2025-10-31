@@ -183,7 +183,7 @@ def callback_handler(call):
             bot.edit_message_text("تم تفعيل الاشتراك الإجباري", call.message.chat.id, call.message.message_id)
 
         elif call.data == "disable_sub":
-            global FORCED_SUBS
+            FORCED_SUBS
             FORCED_SUBS = False
             save_data(users, blocked, stats)
             bot.edit_message_text("تم إيقاف الاشتراك الإجباري", call.message.chat.id, call.message.message_id)
@@ -376,3 +376,4 @@ def index():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
+
